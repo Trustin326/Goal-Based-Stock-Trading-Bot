@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TradePilot AI — SaaS Demo</title>
+  <style>
+    :root{
+      --bg:#0b0f1e;
+      --card:#161b33;
+      --line:rgba(255,255,255,.10);
+      --text:#f4f6ff;
+      --muted:#a8b0d6;
+      --accent:#4cf2c2;
+      --accent2:#5b7cff;
+      --good:#4dffb3;
+      --bad:#ff6b6b;
+      --warn:#ffd36b;
+      --shadow:0 22px 60px rgba(0,0,0,.55);
+      --r:26px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background:
+        radial-gradient(1000px 460px at 12% 5%, rgba(76,242,194,.24), transparent 60%),
+        radial-gradient(900px 460px at 90% 12%, rgba(91,124,255,.22), transparent 62%),
+        var(--bg);
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:26px 14px 70px}
+    .nav{
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:14px 16px; border:1px solid var(--line); border-radius:var(--r);
+      background: rgba(22,27,51,.75); backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{
+      width:44px; height:44px; border-radius:18px;
+      background: linear-gradient(135deg, rgba(76,242,194,.95), rgba(91,124,255,.9));
+      position:relative; overflow:hidden;
+    }
+    .logo:after{
+      content:""; position:absolute; inset:-45%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 42%);
+      transform: rotate(18deg);
+    }
+    .brand h1{margin:0; font-size:15px}
+    .brand p{margin:0; font-size:12px; color:var(--muted)}
+    .btn{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:800;
+      transition:.2s transform,.2s background;
+    }
+    .btn:hover{transform:translateY(-1px); background:rgba(255,255,255,.09)}
+    .btn.primary{
+      border-color: rgba(76,242,194,.35);
+      background: linear-gradient(135deg, rgba(76,242,194,.18), rgba(91,124,255,.12));
+    }
+    .hero{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:14px;
+    }
+    @media(max-width:980px){ .hero{grid-template-columns:1fr} }
+    .card{
+      border:1px solid var(--line);
+      background: rgba(22,27,51,.72);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      padding:18px;
+    }
+    .badge{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border-radius:999px;
+      border:1px solid rgba(76,242,194,.35);
+      background: rgba(76,242,194,.10);
+      color:rgba(255,255,255,.92);
+      font-weight:900; font-size:12px;
+    }
+    h2{margin:0 0 8px; font-size:14px}
+    .headline{font-size:40px; line-height:1.05; margin:12px 0 8px}
+    .sub{margin:0 0 14px; color:var(--muted); font-size:13px}
+    .grid{display:grid; grid-template-columns: repeat(3, 1fr); gap:12px}
+    @media(max-width:980px){ .grid{grid-template-columns: repeat(2, 1fr)} }
+    @media(max-width:520px){ .grid{grid-template-columns: 1fr} }
+    .feature{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      border-radius:18px;
+      padding:14px;
+    }
+    .feature b{display:block; margin-bottom:6px}
+    .pricing{display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-top:12px}
+    @media(max-width:980px){ .pricing{grid-template-columns:1fr} }
+    .priceCard{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      border-radius:18px;
+      padding:16px;
+    }
+    .priceCard .p{font-size:28px; font-weight:1000; margin:8px 0}
+    .muted{color:var(--muted); font-size:12px}
+    label{display:block; color:var(--muted); font-size:12px; margin:0 0 6px}
+    input,select,textarea{
+      width:100%; padding:11px 12px;
+      border-radius:14px; border:1px solid var(--line);
+      background: rgba(255,255,255,.06); color:var(--text); outline:none;
+      font-size:14px;
+    }
+    textarea{min-height:110px; resize:vertical}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .divider{height:1px; background: var(--line); margin:14px 0}
+    .kpis{display:grid; grid-template-columns: repeat(4, 1fr); gap:10px}
+    @media(max-width:980px){ .kpis{grid-template-columns: repeat(2, 1fr)} }
+    .kpi{border:1px solid var(--line); background: rgba(255,255,255,.05); border-radius:16px; padding:12px}
+    .kpi .t{font-size:11px; color:var(--muted); margin-bottom:6px}
+    .kpi .v{font-size:16px; font-weight:1000; font-family:var(--mono)}
+    .kpi .v.good{color:var(--good)}
+    .kpi .v.bad{color:var(--bad)}
+    .log{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      border-radius:16px;
+      max-height: 260px;
+      overflow:auto;
+      font-size:12px;
+    }
+    .log div{padding:10px; border-bottom:1px solid var(--line)}
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      font-weight:950; padding:6px 10px;
+      border-radius:999px; border:1px solid var(--line);
+      background: rgba(255,255,255,.05); font-size:12px;
+    }
+    .tag.good{color:var(--good); border-color: rgba(77,255,179,.35)}
+    .tag.bad{color:var(--bad); border-color: rgba(255,107,107,.35)}
+    .tag.warn{color:var(--warn); border-color: rgba(255,211,107,.35)}
+    .modalBackdrop{
+      position:fixed; inset:0; background: rgba(0,0,0,.6);
+      display:flex; align-items:center; justify-content:center;
+      padding:16px; z-index:50;
+    }
+    .modal{
+      width:min(560px, 100%);
+      border:1px solid var(--line);
+      background: rgba(22,27,51,.95);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .hidden{display:none !important}
+    .mono{font-family:var(--mono)}
+    footer{margin-top:24px; color:var(--muted); font-size:12px; text-align:center}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="nav">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>TradePilot AI — SaaS Demo</h1>
+        <p>Adult Pixar-style, sellable demo • Owner analytics + notes</p>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnLogin">Owner Login</button>
+      <button class="btn" id="btnGoApp">Open Demo App</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="card">
+      <span class="badge">✨ Premium • Goal-driven • Analytics-first</span>
+      <div class="headline">A trading copilot your buyers trust in 30 seconds.</div>
+      <p class="sub">
+        TradePilot AI is a beautiful, simple trading assistant experience with goal-based automation, analytics,
+        and a clean owner back office. (This demo uses simulated trades for safety.)
+      </p>
+
+      <div class="grid">
+        <div class="feature"><b>🎯 Profit Goal Automation</b>Run 15s to 90d sessions that stop on goal/time.</div>
+        <div class="feature"><b>📊 Analytics Dashboard</b>Equity, P/L, win signals, pacing.</div>
+        <div class="feature"><b>🧠 AI-style Signals</b>Trend score based entries & exits.</div>
+        <div class="feature"><b>🗒️ Owner Notes</b>Timestamped notes with downloads.</div>
+        <div class="feature"><b>🧾 Export Reports</b>Export logs + notes for records.</div>
+        <div class="feature"><b>🧩 Broker-ready</b>Designed to connect to a backend later.</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2>Pricing (Stripe-ready placeholders)</h2>
+      <div class="pricing">
+        <div class="priceCard">
+          <div class="tag warn">Starter</div>
+          <div class="p">$7</div>
+          <div class="muted">Goal sessions + basic analytics</div>
+          <div class="divider"></div>
+          <button class="btn primary" onclick="alert('Add your Stripe link here.')">Buy Starter</button>
+        </div>
+        <div class="priceCard">
+          <div class="tag good">Pro</div>
+          <div class="p">$29/mo</div>
+          <div class="muted">Advanced analytics + exports</div>
+          <div class="divider"></div>
+          <button class="btn primary" onclick="alert('Add your Stripe link here.')">Buy Pro</button>
+        </div>
+        <div class="priceCard">
+          <div class="tag warn">Owner</div>
+          <div class="p">$99/mo</div>
+          <div class="muted">Owner dashboard + templates</div>
+          <div class="divider"></div>
+          <button class="btn primary" onclick="alert('Add your Stripe link here.')">Buy Owner</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="appCard">
+      <h2>Demo App (Simulated Trades)</h2>
+      <p class="sub">Owner login required to run sessions. Default: <span class="mono">owner / owner123</span></p>
+
+      <div class="row" style="margin-bottom:8px;">
+        <span class="pill tag warn" id="status">IDLE</span>
+        <span class="pill tag" style="border-color:rgba(76,242,194,.35)">Range: 15s → 90d</span>
+      </div>
+
+      <div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <div>
+          <label>Symbol (display only)</label>
+          <input id="symbol" value="AAPL"/>
+        </div>
+        <div>
+          <label>Horizon</label>
+          <select id="horizon">
+            <option value="15s">15 seconds</option>
+            <option value="1m">1 minute</option>
+            <option value="5m">5 minutes</option>
+            <option value="30m">30 minutes</option>
+            <option value="2h">2 hours</option>
+            <option value="1d" selected>1 day</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="90d">90 days</option>
+          </select>
+        </div>
+        <div>
+          <label>Starting Cash ($)</label>
+          <input id="cash0" type="number" step="0.01" value="10"/>
+        </div>
+        <div>
+          <label>Profit Goal ($)</label>
+          <input id="goal" type="number" step="0.01" value="1"/>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="start">Start Demo Session</button>
+        <button class="btn" id="stop" disabled>Stop</button>
+        <button class="btn" id="export">Export Report</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="t">Sim Price</div><div class="v mono" id="px">$—</div></div>
+        <div class="kpi"><div class="t">Cash</div><div class="v mono" id="cash">$—</div></div>
+        <div class="kpi"><div class="t">Equity</div><div class="v mono" id="eq">$—</div></div>
+        <div class="kpi"><div class="t">P/L</div><div class="v mono" id="pl">$—</div></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2>Owner Notes</h2>
+      <textarea id="noteText" placeholder="Owner notes (timestamped)"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="saveNote">Save Note</button>
+        <button class="btn" id="notesTxt">Download Notes TXT</button>
+        <button class="btn" id="notesJson">Download Notes JSON</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2>Demo Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <footer>
+    This is a demo SaaS UI. Real broker execution requires a secure backend + broker integration.
+  </footer>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modalBackdrop hidden" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2 style="margin:0 0 8px;">Owner Login</h2>
+    <p class="sub" style="margin-top:0;">Default credentials so you can start instantly.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+      <div>
+        <label>Username</label>
+        <input id="u" placeholder="owner"/>
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="p" type="password" placeholder="owner123"/>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="row">
+      <button class="btn primary" id="doLogin">Login</button>
+      <button class="btn" id="closeLogin">Cancel</button>
+    </div>
+    <div class="muted">Demo creds: <span class="mono">owner / owner123</span></div>
+  </div>
+</div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+const money = (n)=>"$"+(isFinite(n)?Number(n).toFixed(2):"—");
+const nowISO = ()=> new Date().toISOString().replace("T"," ").slice(0,19);
+
+const LS = "tradepilot_saas_demo_v1";
+const state = load();
+
+let t = null;
+let px = 100.0;
+let cash = 10.0;
+let qty = 0.0;
+let entry = 0.0;
+let startEq = 0.0;
+let session = {active:false, endsAt:0, goal:0, startedAt:0};
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS);
+    if(!raw) return {owner:false, notes:[], log:[]};
+    const s = JSON.parse(raw);
+    if(!Array.isArray(s.notes) || !Array.isArray(s.log)) return {owner:false, notes:[], log:[]};
+    return s;
+  }catch(e){ return {owner:false, notes:[], log:[]}; }
+}
+function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+
+function log(msg, kind=""){
+  state.log.push({time: nowISO(), msg, kind});
+  save();
+  renderLog();
+}
+function renderLog(){
+  const el = $("log");
+  el.innerHTML = "";
+  const rows = [...state.log].slice().reverse().slice(0,120);
+  for(const r of rows){
+    const d = document.createElement("div");
+    d.innerHTML = `<div class="mono" style="opacity:.85">${r.time}</div>
+                   <div>${r.msg}</div>`;
+    el.appendChild(d);
+  }
+}
+function parseHorizon(str){
+  const s = String(str);
+  const n = parseInt(s, 10);
+  if(s.endsWith("s")) return n*1000;
+  if(s.endsWith("m")) return n*60*1000;
+  if(s.endsWith("h")) return n*60*60*1000;
+  if(s.endsWith("d")) return n*24*60*60*1000;
+  return 24*60*60*1000;
+}
+
+function renderKPIs(){
+  $("px").textContent = money(px);
+  $("cash").textContent = money(cash);
+  const eq = cash + qty*px;
+  $("eq").textContent = money(eq);
+  const pl = eq - startEq;
+  $("pl").textContent = money(pl);
+  $("pl").className = "v mono " + (pl>=0 ? "good":"bad");
+}
+
+function simulatePriceStep(){
+  // gentle “market” movement
+  const drift = (Math.random()-0.5)*0.6;
+  const trend = (qty>0 ? 0.02 : 0.00);
+  px = Math.max(1, px + drift + trend);
+}
+
+function step(){
+  simulatePriceStep();
+  renderKPIs();
+
+  const eq = cash + qty*px;
+  const pl = eq - startEq;
+
+  if(session.active){
+    if(pl >= session.goal){
+      $("status").textContent = "GOAL HIT";
+      $("status").className = "pill tag good";
+      log("🎯 Demo profit goal reached. Session ended.");
+      stop();
+      return;
+    }
+    if(Date.now() >= session.endsAt){
+      $("status").textContent = "TIME UP";
+      $("status").className = "pill tag warn";
+      log("⏰ Horizon ended. Session ended.");
+      stop();
+      return;
+    }
+  }
+
+  // Simple trend-like behavior (demo)
+  // Buy if “rising”, sell if “falling” after entry
+  const tradeAmt = 2; // fixed for demo simplicity
+  if(px > 100.2 && cash >= tradeAmt){
+    const q = tradeAmt / px;
+    qty += q;
+    cash -= tradeAmt;
+    entry = px;
+    log(`BUY (demo) ${q.toFixed(4)} @ ${money(px)}`);
+  }
+  if(qty > 0 && px > entry*1.01){
+    cash += qty*px;
+    log(`SELL (demo) ${qty.toFixed(4)} @ ${money(px)} (profit lock)`);
+    qty = 0;
+    entry = 0;
+  }
+}
+
+function start(){
+  if(!state.owner) return openLogin();
+  px = 100.0;
+  cash = Number($("cash0").value || 10);
+  qty = 0; entry = 0;
+  startEq = cash;
+  session.active = true;
+  session.goal = Number($("goal").value || 1);
+  session.startedAt = Date.now();
+  session.endsAt = session.startedAt + parseHorizon($("horizon").value);
+
+  $("status").textContent = "RUNNING";
+  $("status").className = "pill tag warn";
+  $("stop").disabled = false;
+  $("start").disabled = true;
+
+  log(`Session started (demo). Goal ${money(session.goal)}. Horizon ${$("horizon").value}.`);
+  t = setInterval(step, 15000);
+  step();
+}
+
+function stop(){
+  if(t){ clearInterval(t); t = null; }
+  session.active = false;
+  $("stop").disabled = true;
+  $("start").disabled = false;
+}
+
+function downloadJSON(obj, filename){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function exportAll(){
+  const payload = {exportedAt: nowISO(), notes: state.notes, log: state.log};
+  downloadJSON(payload, "tradepilot-saas-demo-export.json");
+}
+
+function saveNote(){
+  if(!state.owner) return openLogin();
+  const txt = $("noteText").value.trim();
+  if(!txt) return;
+  state.notes.push({time: nowISO(), text: txt});
+  save();
+  $("noteText").value = "";
+  log("🗒️ Note saved (timestamped).");
+}
+function notesTxt(){
+  const lines = state.notes.map(n=>`[${n.time}] ${n.text}`);
+  const blob = new Blob([lines.join("\n\n")], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "tradepilot-notes.txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function notesJson(){
+  downloadJSON({exportedAt: nowISO(), notes: state.notes}, "tradepilot-notes.json");
+}
+
+/* Login */
+function openLogin(){ $("loginModal").classList.remove("hidden"); }
+function closeLogin(){ $("loginModal").classList.add("hidden"); }
+function doLogin(){
+  const u = $("u").value.trim();
+  const p = $("p").value.trim();
+  if(u==="owner" && p==="owner123"){
+    state.owner = true; save();
+    closeLogin();
+    log("✅ Owner login successful.");
+  }else{
+    log("❌ Wrong credentials. Use owner / owner123");
+  }
+}
+
+/* Wiring */
+$("btnLogin").addEventListener("click", openLogin);
+$("closeLogin").addEventListener("click", closeLogin);
+$("doLogin").addEventListener("click", doLogin);
+
+$("btnGoApp").addEventListener("click", ()=>document.getElementById("appCard").scrollIntoView({behavior:"smooth"}));
+
+$("start").addEventListener("click", start);
+$("stop").addEventListener("click", ()=>{ log("Session stopped by owner."); stop(); });
+
+$("export").addEventListener("click", exportAll);
+$("saveNote").addEventListener("click", saveNote);
+$("notesTxt").addEventListener("click", notesTxt);
+$("notesJson").addEventListener("click", notesJson);
+
+/* Init */
+renderLog();
+renderKPIs();
+if(!state.owner) log("Owner login required to run sessions. Use owner / owner123");
+</script>
+</body>
+</html>
