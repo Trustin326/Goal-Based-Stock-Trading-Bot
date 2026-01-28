@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TradePilot AI — Trade Terminal (Robinhood/Fidelity)</title>
+  <style>
+    :root{
+      --bg:#0b0f1e;
+      --card:#161b33;
+      --card2:#121633;
+      --line:rgba(255,255,255,.10);
+      --text:#f4f6ff;
+      --muted:#a8b0d6;
+      --accent:#4cf2c2;
+      --accent2:#5b7cff;
+      --good:#4dffb3;
+      --bad:#ff6b6b;
+      --warn:#ffd36b;
+      --shadow:0 22px 60px rgba(0,0,0,.55);
+      --r:22px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text);
+      background:
+        radial-gradient(900px 420px at 12% 8%, rgba(76,242,194,.22), transparent 60%),
+        radial-gradient(820px 420px at 88% 14%, rgba(91,124,255,.22), transparent 60%),
+        var(--bg);
+    }
+    .wrap{max-width:1200px; margin:0 auto; padding:22px 14px 70px;}
+    .top{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:14px 14px; border:1px solid var(--line); border-radius:var(--r);
+      background:rgba(18,22,51,.75); backdrop-filter: blur(10px); box-shadow: var(--shadow);
+    }
+    .brand{display:flex; align-items:center; gap:12px;}
+    .logo{
+      width:42px; height:42px; border-radius:18px;
+      background: linear-gradient(135deg, rgba(76,242,194,.95), rgba(91,124,255,.9));
+      position:relative; overflow:hidden;
+      box-shadow:0 18px 32px rgba(76,242,194,.15);
+    }
+    .logo:after{
+      content:""; position:absolute; inset:-40%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 40%);
+      transform: rotate(18deg);
+    }
+    .brand h1{margin:0; font-size:15px; letter-spacing:.2px}
+    .brand p{margin:0; font-size:12px; color:var(--muted)}
+    .btn{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:750;
+      transition:.2s transform,.2s background;
+    }
+    .btn:hover{transform:translateY(-1px); background:rgba(255,255,255,.09)}
+    .btn.primary{
+      border-color: rgba(76,242,194,.35);
+      background: linear-gradient(135deg, rgba(76,242,194,.18), rgba(91,124,255,.12));
+    }
+    .btn.danger{border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.10)}
+    .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; margin-top:14px;}
+    @media(max-width:980px){ .grid{grid-template-columns:1fr} }
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      background: rgba(22,27,51,.72);
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    h2{margin:0 0 8px; font-size:14px; letter-spacing:.2px}
+    .sub{margin:0 0 12px; color:var(--muted); font-size:12px}
+    .two{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+    @media(max-width:520px){ .two{grid-template-columns:1fr} }
+    label{display:block; color:var(--muted); font-size:12px; margin:0 0 6px}
+    input, select, textarea{
+      width:100%;
+      padding:11px 12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      outline:none;
+      font-size:14px;
+    }
+    textarea{min-height:110px; resize:vertical;}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px; border-radius:999px;
+      border:1px solid var(--line); background: rgba(255,255,255,.05);
+      font-size:12px; color:rgba(255,255,255,.92);
+      white-space:nowrap;
+    }
+    .pill strong{font-family:var(--mono)}
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      font-weight:850; padding:6px 10px;
+      border-radius:999px; border:1px solid var(--line);
+      background: rgba(255,255,255,.05); font-size:12px;
+    }
+    .tag.good{color:var(--good); border-color: rgba(77,255,179,.35)}
+    .tag.bad{color:var(--bad); border-color: rgba(255,107,107,.35)}
+    .tag.warn{color:var(--warn); border-color: rgba(255,211,107,.35)}
+    .divider{height:1px; background: var(--line); margin:14px 0}
+    .kpis{display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px;}
+    @media(max-width:980px){ .kpis{grid-template-columns: repeat(2, 1fr)} }
+    .kpi{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      border-radius:16px;
+      padding:12px;
+    }
+    .kpi .t{font-size:11px; color:var(--muted); margin-bottom:6px}
+    .kpi .v{font-size:16px; font-weight:900; font-family:var(--mono)}
+    .kpi .v.good{color:var(--good)}
+    .kpi .v.bad{color:var(--bad)}
+    .log{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      border-radius:16px;
+      max-height: 300px;
+      overflow:auto;
+      font-size:12px;
+    }
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:10px; border-bottom:1px solid var(--line); vertical-align:top}
+    th{position:sticky; top:0; background: rgba(18,22,51,.95); text-align:left}
+    .mini{font-size:12px; color:var(--muted)}
+    .hint{
+      border:1px dashed rgba(76,242,194,.35);
+      background: rgba(76,242,194,.08);
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:12px;
+      color:rgba(255,255,255,.9);
+    }
+    .modalBackdrop{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.6);
+      display:flex; align-items:center; justify-content:center;
+      padding:16px; z-index:50;
+    }
+    .modal{
+      width:min(560px, 100%);
+      border:1px solid var(--line);
+      background: rgba(18,22,51,.95);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .hidden{display:none !important}
+    .footerNote{margin-top:10px; color:var(--muted); font-size:12px}
+    .mono{font-family:var(--mono)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>TradePilot AI — Trade Terminal</h1>
+        <p>Robinhood + Fidelity compatible • Owner login required</p>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnLogin">Owner Login</button>
+      <button class="btn" id="btnOwner" title="Open owner dashboard">Owner Dashboard</button>
+      <button class="btn danger" id="btnReset" title="Reset local data">Reset</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: TERMINAL -->
+    <div class="card">
+      <h2>Trade Terminal</h2>
+      <p class="sub">
+        This terminal can run automation for <b>15s → 90 days</b>. For Robinhood/Fidelity, it opens the broker execution page so you can confirm orders quickly.
+      </p>
+
+      <div class="two">
+        <div>
+          <label>Broker</label>
+          <select id="broker">
+            <option value="robinhood">Robinhood</option>
+            <option value="fidelity">Fidelity</option>
+          </select>
+        </div>
+        <div>
+          <label>Symbol</label>
+          <input id="symbol" value="AAPL" placeholder="AAPL, TSLA, MSFT"/>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:10px;">
+        <div>
+          <label>Starting Cash ($) — paper ledger</label>
+          <input id="startCash" type="number" min="0" step="0.01" value="10"/>
+        </div>
+        <div>
+          <label>Trade Amount ($ per action)</label>
+          <input id="tradeAmt" type="number" min="0.5" step="0.01" value="2"/>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:10px;">
+        <div>
+          <label>Profit Goal ($)</label>
+          <input id="profitGoal" type="number" min="0" step="0.01" value="1"/>
+        </div>
+        <div>
+          <label>Time Horizon</label>
+          <select id="horizon">
+            <option value="15s">15 seconds</option>
+            <option value="1m">1 minute</option>
+            <option value="5m">5 minutes</option>
+            <option value="30m">30 minutes</option>
+            <option value="2h">2 hours</option>
+            <option value="1d" selected>1 day</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="90d">90 days</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:10px;">
+        <div>
+          <label>Automation tick interval</label>
+          <select id="interval">
+            <option value="15000" selected>15 seconds</option>
+            <option value="30000">30 seconds</option>
+            <option value="60000">60 seconds</option>
+          </select>
+          <div class="mini">Min 15s. For long horizons, keep 60s to reduce rate limits.</div>
+        </div>
+        <div>
+          <label>Mode</label>
+          <select id="mode">
+            <option value="assist" selected>Assist (opens broker for confirmation)</option>
+            <option value="signals">Signals only (no broker tab)</option>
+          </select>
+          <div class="mini">Robinhood/Fidelity require confirmation (no official auto-execution).</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <span class="pill">Price: <strong id="px">$—</strong></span>
+        <span class="pill">MA(5): <strong id="ma5">—</strong></span>
+        <span class="pill">MA(12): <strong id="ma12">—</strong></span>
+        <span class="pill">AI Score: <strong id="score">—</strong></span>
+        <span id="sig" class="tag warn">WAIT</span>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="t">Cash</div><div class="v" id="cash">$0.00</div></div>
+        <div class="kpi"><div class="t">Position (shares)</div><div class="v" id="pos">0.0000</div></div>
+        <div class="kpi"><div class="t">Equity</div><div class="v" id="eq">$0.00</div></div>
+        <div class="kpi"><div class="t">P/L vs start</div><div class="v" id="pl">$0.00</div></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button class="btn primary" id="btnStart">Start Automation</button>
+        <button class="btn" id="btnStop" disabled>Stop</button>
+        <button class="btn" id="btnBuy">Manual BUY</button>
+        <button class="btn" id="btnSell">Manual SELL</button>
+        <button class="btn" id="btnExport">Export Log</button>
+      </div>
+
+      <div class="footerNote">
+        <b>Within the hour:</b> fund broker → open this terminal → Start Automation → it will open the broker symbol page when a BUY/SELL is triggered.
+      </div>
+    </div>
+
+    <!-- RIGHT: OWNER ANALYTICS + NOTES -->
+    <div class="card">
+      <h2>Owner Analytics + Notes</h2>
+      <p class="sub">Timestamped events + downloadable notes. Stored locally in your browser.</p>
+
+      <div class="hint">
+        <b>Owner tools</b><br/>
+        • Timestamped trade/session log<br/>
+        • Notes you can download anytime (TXT/JSON)<br/>
+        • Session analytics: profit pacing, actions, status<br/>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="two">
+        <div>
+          <label>Owner Notes (timestamped on save)</label>
+          <textarea id="noteText" placeholder="Type notes about strategy, what you observed, what to change…"></textarea>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="btnSaveNote">Save Note</button>
+            <button class="btn" id="btnDownloadNotesTxt">Download Notes (TXT)</button>
+            <button class="btn" id="btnDownloadNotesJson">Download Notes (JSON)</button>
+          </div>
+        </div>
+        <div>
+          <label>Notes History</label>
+          <div class="log" style="max-height:240px" id="notesList"></div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn danger" id="btnClearNotes">Clear Notes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h2 style="margin-top:2px;">Trade Log</h2>
+      <div class="log">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th><th>Action</th><th>Price</th><th>Qty</th><th>P/L</th><th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modalBackdrop hidden" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h2 style="margin:0 0 8px;">Owner Login</h2>
+    <p class="sub" style="margin-top:0;">Default credentials are set so you can start immediately.</p>
+    <div class="two">
+      <div>
+        <label>Username</label>
+        <input id="u" placeholder="owner" autocomplete="username"/>
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="p" type="password" placeholder="owner123" autocomplete="current-password"/>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="row">
+      <button class="btn primary" id="doLogin">Login</button>
+      <button class="btn" id="closeLogin">Cancel</button>
+    </div>
+    <div class="footerNote">Demo creds: <span class="mono">owner / owner123</span></div>
+  </div>
+</div>
+
+<script>
+/* ==========
+   TradePilot AI — Terminal (Robinhood/Fidelity)
+   NOTE: Robinhood + Fidelity do not provide official public trade-execution APIs for a static site.
+   This file runs goal-driven automation + opens broker execution pages for quick confirmation.
+   ========== */
+
+const $ = (id)=>document.getElementById(id);
+const money = (n)=>"$"+(isFinite(n)?Number(n).toFixed(2):"—");
+const fmt = (n,d=4)=>(isFinite(n)?Number(n).toFixed(d):"—");
+const nowISO = ()=> new Date().toISOString().replace("T"," ").slice(0,19);
+
+const LS = "tradepilot_terminal_v1";
+const state = loadState();
+
+let timer = null;
+let prices = []; // recent prices
+let lastPrice = null;
+let startEquity = 0;
+let session = {startedAt:null, endsAt:null, goal:0, active:false};
+
+function defaultState(){
+  return {
+    owner:false,
+    ledger:{ cash:10, qty:0, entry:0, realized:0 },
+    log:[],
+    notes:[]
+  };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS);
+    if(!raw) return defaultState();
+    const s = JSON.parse(raw);
+    if(!s.ledger || !Array.isArray(s.log) || !Array.isArray(s.notes)) return defaultState();
+    return s;
+  }catch(e){
+    return defaultState();
+  }
+}
+function saveState(){ localStorage.setItem(LS, JSON.stringify(state)); }
+
+function setTag(kind, text){
+  const el = $("sig");
+  el.className = "tag " + (kind || "warn");
+  el.textContent = text;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+}
+function toast(msg){
+  const t = document.createElement("div");
+  t.textContent = msg;
+  t.style.position="fixed";
+  t.style.bottom="18px";
+  t.style.left="50%";
+  t.style.transform="translateX(-50%)";
+  t.style.background="rgba(18,22,51,.95)";
+  t.style.border="1px solid rgba(255,255,255,.12)";
+  t.style.color="rgba(255,255,255,.92)";
+  t.style.padding="10px 12px";
+  t.style.borderRadius="14px";
+  t.style.boxShadow="0 22px 60px rgba(0,0,0,.55)";
+  t.style.zIndex="999";
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0"; t.style.transition="opacity .25s";}, 1400);
+  setTimeout(()=>{t.remove();}, 1750);
+}
+
+async function fetchPriceStooq(sym){
+  // Stooq provides free quotes (may delay / not for all symbols).
+  // Example: https://stooq.com/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=csv
+  const raw = sym.trim();
+  if(!raw) return null;
+
+  // If user types AAPL, assume US listing -> aapl.us
+  const normalized = raw.includes(".") ? raw : (raw.toLowerCase() + ".us");
+  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(normalized)}&f=sd2t2ohlcv&h&e=csv`;
+  const r = await fetch(url);
+  if(!r.ok) return null;
+  const t = await r.text();
+  const lines = t.trim().split("\n");
+  if(lines.length < 2) return null;
+  const cols = lines[1].split(",");
+  const close = parseFloat(cols[3]);
+  if(!isFinite(close)) return null;
+  return close;
+}
+
+function sma(arr, n){
+  if(arr.length < n) return null;
+  let s = 0;
+  for(let i=arr.length-n;i<arr.length;i++) s += arr[i];
+  return s/n;
+}
+
+function computeScore(ma5, ma12){
+  // Simple trend score (intuitive + stable)
+  // ma5 > ma12 => bullish (+2)
+  // ma5 < ma12 => bearish (-2)
+  // else WAIT
+  if(ma5==null || ma12==null) return 0;
+  if(ma5 > ma12) return 2;
+  if(ma5 < ma12) return -2;
+  return 0;
+}
+
+function renderKPIs(){
+  const cash = state.ledger.cash;
+  const qty = state.ledger.qty;
+  const eq = cash + qty * (lastPrice || 0);
+  const pl = eq - startEquity;
+
+  $("cash").textContent = money(cash);
+  $("pos").textContent = fmt(qty, 4);
+  $("eq").textContent = money(eq);
+  $("pl").textContent = money(pl);
+  $("pl").className = "v " + (pl >= 0 ? "good":"bad");
+}
+
+function logTrade(action, price, qty, pl=null, note=""){
+  state.log.push({time: nowISO(), action, price, qty, pl, note});
+  saveState();
+  renderLog();
+}
+function renderLog(){
+  const tb = $("logBody");
+  tb.innerHTML = "";
+  const rows = [...state.log].slice().reverse();
+  for(const r of rows){
+    const tr = document.createElement("tr");
+    const cls = r.action==="BUY" ? "good" : r.action==="SELL" ? "bad" : "warn";
+    tr.innerHTML = `
+      <td class="mono">${escapeHtml(r.time)}</td>
+      <td><span class="tag ${cls}">${escapeHtml(r.action)}</span></td>
+      <td class="mono">$${Number(r.price).toFixed(2)}</td>
+      <td class="mono">${Number(r.qty).toFixed(4)}</td>
+      <td class="mono">${(r.pl===null||r.pl===undefined)?"—":money(r.pl)}</td>
+      <td>${escapeHtml(r.note||"")}</td>
+    `;
+    tb.appendChild(tr);
+  }
+}
+
+function openBroker(symbol){
+  const b = $("broker").value;
+  const sym = symbol.trim().toUpperCase();
+
+  // These open broker pages for execution/confirmation. Exact deep-linking varies and may change.
+  // Robinhood stock detail pages are usually consistent. Fidelity trade ticket is a general page.
+  let url = "";
+  if(b === "robinhood"){
+    url = `https://robinhood.com/stocks/${encodeURIComponent(sym)}`;
+  }else{
+    url = `https://digital.fidelity.com/prgw/digital/trade`;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function buyPaper(reason="Signal BUY"){
+  if(!lastPrice) return;
+  const tradeAmt = Number($("tradeAmt").value || 0);
+  if(!(tradeAmt>0)) return toast("Set trade amount.");
+  if(state.ledger.cash < tradeAmt) return toast("Not enough cash in paper ledger.");
+  const qty = tradeAmt / lastPrice;
+
+  // average entry calc
+  const prevVal = state.ledger.qty * state.ledger.entry;
+  const newVal = prevVal + qty * lastPrice;
+  const newQty = state.ledger.qty + qty;
+  state.ledger.entry = newQty > 0 ? (newVal/newQty) : 0;
+  state.ledger.qty = newQty;
+  state.ledger.cash -= tradeAmt;
+
+  logTrade("BUY", lastPrice, qty, null, reason);
+  saveState();
+  renderKPIs();
+}
+
+function sellPaper(reason="Signal SELL"){
+  if(!lastPrice) return;
+  if(state.ledger.qty <= 0) return toast("No position to sell.");
+  const qty = state.ledger.qty;
+  const proceeds = qty * lastPrice;
+  const cost = qty * state.ledger.entry;
+  const pl = proceeds - cost;
+
+  state.ledger.cash += proceeds;
+  state.ledger.qty = 0;
+  state.ledger.entry = 0;
+  state.ledger.realized += pl;
+
+  logTrade("SELL", lastPrice, qty, pl, reason);
+  saveState();
+  renderKPIs();
+}
+
+function parseHorizon(str){
+  // returns ms
+  const s = String(str);
+  const n = parseInt(s, 10);
+  if(s.endsWith("s")) return n * 1000;
+  if(s.endsWith("m")) return n * 60 * 1000;
+  if(s.endsWith("h")) return n * 60 * 60 * 1000;
+  if(s.endsWith("d")) return n * 24 * 60 * 60 * 1000;
+  return 24 * 60 * 60 * 1000;
+}
+
+async function tick(){
+  const sym = $("symbol").value.trim();
+  const price = await fetchPriceStooq(sym);
+  if(!isFinite(price)){
+    setTag("warn","OFFLINE");
+    return;
+  }
+  lastPrice = price;
+  prices.push(price);
+  if(prices.length > 30) prices.shift();
+
+  const ma5 = sma(prices, 5);
+  const ma12 = sma(prices, 12);
+  const score = computeScore(ma5, ma12);
+
+  $("px").textContent = "$" + price.toFixed(2);
+  $("ma5").textContent = ma5==null ? "—" : ma5.toFixed(2);
+  $("ma12").textContent = ma12==null ? "—" : ma12.toFixed(2);
+  $("score").textContent = score;
+
+  if(score >= 2) setTag("good","BUY");
+  else if(score <= -2) setTag("bad","SELL");
+  else setTag("warn","WAIT");
+
+  renderKPIs();
+
+  // Goal/time checks
+  const eq = state.ledger.cash + state.ledger.qty * lastPrice;
+  const pl = eq - startEquity;
+  const goal = session.goal;
+  const now = Date.now();
+
+  if(session.active){
+    if(pl >= goal){
+      logTrade("INFO", lastPrice, 0, null, "🎯 Profit goal reached. Stopping session.");
+      toast("Profit goal hit — session stopped.");
+      stopSession();
+      return;
+    }
+    if(now >= session.endsAt){
+      logTrade("INFO", lastPrice, 0, null, "⏰ Horizon ended. Stopping session.");
+      toast("Horizon ended — session stopped.");
+      stopSession();
+      return;
+    }
+  }
+
+  if(!timer) return; // not running
+
+  // Automation action
+  if(score >= 2){
+    if(state.ledger.cash > 0.5){
+      buyPaper("Auto BUY: MA(5) > MA(12)");
+      if($("mode").value === "assist") openBroker(sym);
+    }
+  }else if(score <= -2){
+    if(state.ledger.qty > 0){
+      sellPaper("Auto SELL: MA(5) < MA(12)");
+      if($("mode").value === "assist") openBroker(sym);
+    }
+  }
+}
+
+function startSession(){
+  if(!state.owner) return openLogin();
+
+  // Initialize ledger
+  state.ledger.cash = Number($("startCash").value || 0);
+  state.ledger.qty = 0;
+  state.ledger.entry = 0;
+  saveState();
+
+  startEquity = state.ledger.cash;
+  prices = [];
+  lastPrice = null;
+
+  const horizonMs = parseHorizon($("horizon").value);
+  const goal = Number($("profitGoal").value || 0);
+
+  session.startedAt = Date.now();
+  session.endsAt = session.startedAt + horizonMs;
+  session.goal = goal;
+  session.active = true;
+
+  // Start timer
+  const interval = Number($("interval").value || 15000);
+  timer = setInterval(tick, interval);
+
+  logTrade("INFO", 0, 0, null, `Session started. Goal $${goal.toFixed(2)}. Horizon ${$("horizon").value}. Interval ${(interval/1000)}s.`);
+  toast("Automation started.");
+  $("btnStop").disabled = false;
+  $("btnStart").disabled = true;
+
+  // immediate tick
+  tick();
+}
+
+function stopSession(){
+  if(timer){
+    clearInterval(timer);
+    timer = null;
+  }
+  session.active = false;
+  $("btnStop").disabled = true;
+  $("btnStart").disabled = false;
+}
+
+function exportLog(){
+  const payload = {
+    exportedAt: nowISO(),
+    broker: $("broker").value,
+    symbol: $("symbol").value.trim().toUpperCase(),
+    session: {
+      startedAt: session.startedAt ? new Date(session.startedAt).toISOString() : null,
+      endsAt: session.endsAt ? new Date(session.endsAt).toISOString() : null,
+      goal: session.goal,
+      mode: $("mode").value,
+      intervalMs: Number($("interval").value)
+    },
+    ledger: state.ledger,
+    log: state.log,
+    notes: state.notes
+  };
+  downloadJSON(payload, "tradepilot-terminal-export.json");
+}
+
+function downloadJSON(obj, filename){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderNotes(){
+  const el = $("notesList");
+  el.innerHTML = "";
+  const rows = [...state.notes].slice().reverse();
+  for(const n of rows){
+    const d = document.createElement("div");
+    d.style.padding="10px";
+    d.style.borderBottom="1px solid rgba(255,255,255,.10)";
+    d.innerHTML = `<div class="mono" style="opacity:.85">${escapeHtml(n.time)}</div>
+                   <div style="margin-top:6px; white-space:pre-wrap">${escapeHtml(n.text)}</div>`;
+    el.appendChild(d);
+  }
+}
+
+function saveNote(){
+  if(!state.owner) return openLogin();
+  const txt = $("noteText").value.trim();
+  if(!txt) return toast("Write a note first.");
+  state.notes.push({time: nowISO(), text: txt});
+  $("noteText").value = "";
+  saveState();
+  renderNotes();
+  toast("Note saved.");
+}
+
+function downloadNotesTxt(){
+  const lines = state.notes.map(n => `[${n.time}] ${n.text}`);
+  const blob = new Blob([lines.join("\n\n")], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download="tradepilot-notes.txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function downloadNotesJson(){
+  downloadJSON({exportedAt: nowISO(), notes: state.notes}, "tradepilot-notes.json");
+}
+function clearNotes(){
+  if(!state.owner) return openLogin();
+  if(!confirm("Clear all notes?")) return;
+  state.notes = [];
+  saveState();
+  renderNotes();
+}
+
+function resetAll(){
+  if(!confirm("Reset all local data (login, ledger, logs, notes)?")) return;
+  localStorage.removeItem(LS);
+  location.reload();
+}
+
+/* --- Login --- */
+function openLogin(){ $("loginModal").classList.remove("hidden"); }
+function closeLogin(){ $("loginModal").classList.add("hidden"); }
+function doLogin(){
+  const u = $("u").value.trim();
+  const p = $("p").value.trim();
+  if(u==="owner" && p==="owner123"){
+    state.owner = true;
+    saveState();
+    closeLogin();
+    toast("Owner login successful.");
+  }else{
+    toast("Wrong credentials. Use owner / owner123");
+  }
+}
+
+/* --- Wiring --- */
+$("btnLogin").addEventListener("click", openLogin);
+$("closeLogin").addEventListener("click", closeLogin);
+$("doLogin").addEventListener("click", doLogin);
+
+$("btnStart").addEventListener("click", startSession);
+$("btnStop").addEventListener("click", ()=>{ logTrade("INFO", lastPrice||0, 0, null, "Session stopped by owner."); stopSession(); toast("Stopped."); });
+
+$("btnBuy").addEventListener("click", ()=>{
+  if(!state.owner) return openLogin();
+  buyPaper("Manual BUY");
+  if($("mode").value === "assist") openBroker($("symbol").value);
+});
+$("btnSell").addEventListener("click", ()=>{
+  if(!state.owner) return openLogin();
+  sellPaper("Manual SELL");
+  if($("mode").value === "assist") openBroker($("symbol").value);
+});
+$("btnExport").addEventListener("click", exportLog);
+$("btnReset").addEventListener("click", resetAll);
+
+$("btnSaveNote").addEventListener("click", saveNote);
+$("btnDownloadNotesTxt").addEventListener("click", downloadNotesTxt);
+$("btnDownloadNotesJson").addEventListener("click", downloadNotesJson);
+$("btnClearNotes").addEventListener("click", clearNotes);
+
+$("btnOwner").addEventListener("click", ()=>{
+  toast("Owner panel is on the right (Analytics + Notes).");
+});
+
+/* --- Init --- */
+renderLog();
+renderNotes();
+startEquity = state.ledger.cash;
+$("cash").textContent = money(state.ledger.cash);
+$("pos").textContent = fmt(state.ledger.qty, 4);
+$("eq").textContent = money(state.ledger.cash);
+$("pl").textContent = money(0);
+
+if(!state.owner){
+  // require owner login to start
+  toast("Owner login required to start. Click Owner Login (owner/owner123).");
+}
+</script>
+</body>
+</html>
