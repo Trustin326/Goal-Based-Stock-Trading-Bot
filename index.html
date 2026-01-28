@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TradePilot AI — Goal-Driven Stock Bot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --bg:#0b0f1e;
+  --card:#161b33;
+  --accent:#4cf2c2;
+  --accent2:#5b7cff;
+  --text:#f4f6ff;
+  --muted:#a5accf;
+  --good:#4dffb3;
+  --bad:#ff6b6b;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  background:
+    radial-gradient(900px 400px at 15% 10%, rgba(76,242,194,.25), transparent 60%),
+    radial-gradient(800px 400px at 85% 20%, rgba(91,124,255,.25), transparent 60%),
+    var(--bg);
+  color:var(--text);
+}
+.container{max-width:1200px;margin:auto;padding:28px}
+.hero{
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:32px;
+  align-items:center;
+  margin-bottom:48px;
+}
+.heroCard{
+  background:linear-gradient(145deg,#1a2044,#13183a);
+  border-radius:28px;
+  padding:36px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+h1{font-size:42px;margin:0 0 12px}
+h2{margin:0 0 8px}
+p{color:var(--muted)}
+.badge{
+  display:inline-block;
+  padding:6px 14px;
+  border-radius:999px;
+  background:rgba(76,242,194,.15);
+  color:var(--accent);
+  font-weight:700;
+  font-size:13px;
+  margin-bottom:12px;
+}
+.features{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:18px;
+  margin-top:24px;
+}
+.feature{
+  background:var(--card);
+  border-radius:20px;
+  padding:20px;
+}
+.feature b{display:block;margin-bottom:6px}
+.card{
+  background:var(--card);
+  border-radius:22px;
+  padding:24px;
+  margin-bottom:24px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;
+}
+label{font-size:13px;color:var(--muted)}
+input,button{
+  width:100%;
+  padding:14px;
+  border-radius:14px;
+  border:none;
+  background:#232a5e;
+  color:var(--text);
+  font-size:14px;
+}
+button{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  font-weight:800;
+  cursor:pointer;
+}
+button.secondary{
+  background:#2b326f;
+}
+.stat{
+  background:#1f2552;
+  border-radius:18px;
+  padding:16px;
+}
+.stat small{color:var(--muted)}
+.stat div{font-size:20px;font-weight:800}
+.good{color:var(--good)}
+.bad{color:var(--bad)}
+.log{
+  max-height:260px;
+  overflow:auto;
+  font-size:13px;
+}
+.log div{
+  padding:6px 0;
+  border-bottom:1px solid #2a2f66;
+}
+footer{
+  text-align:center;
+  color:var(--muted);
+  font-size:13px;
+  margin-top:48px;
+}
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="heroCard">
+    <span class="badge">AI-Driven • Goal Focused • Stocks</span>
+    <h1>TradePilot AI</h1>
+    <p>
+      A goal-driven stock trading assistant designed to pursue profit targets
+      within defined time windows. Clean analytics, automated execution logic,
+      and a modern adult Pixar-style experience.
+    </p>
+
+    <div class="features">
+      <div class="feature"><b>🎯 Profit Target Engine</b>Trades toward a defined dollar goal</div>
+      <div class="feature"><b>⏱ Time-Bound Automation</b>Stops when time expires</div>
+      <div class="feature"><b>📊 Real-Time Analytics</b>Equity, P/L, status</div>
+      <div class="feature"><b>💼 Trade Size Control</b>Set risk per trade</div>
+      <div class="feature"><b>📈 Momentum Logic</b>Trend-aware entries</div>
+      <div class="feature"><b>🧠 AI-Style Decisions</b>Score-based automation</div>
+    </div>
+  </div>
+
+  <div class="heroCard">
+    <h2>Start Automation</h2>
+    <div class="grid">
+      <div>
+        <label>Stock Symbol</label>
+        <input id="symbol" value="AAPL">
+      </div>
+      <div>
+        <label>Starting Balance ($)</label>
+        <input id="startBalance" type="number" value="10">
+      </div>
+      <div>
+        <label>Trade Amount ($)</label>
+        <input id="tradeAmount" type="number" value="2">
+      </div>
+      <div>
+        <label>Profit Goal ($)</label>
+        <input id="profitGoal" type="number" value="1">
+      </div>
+      <div>
+        <label>Time Span (days)</label>
+        <input id="days" type="number" value="7">
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button onclick="startBot()">▶ Start AI Automation</button>
+      <button class="secondary" onclick="stopBot()">⏹ Stop</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="card">
+  <h2>Analytics Dashboard</h2>
+  <div class="grid">
+    <div class="stat"><small>Price</small><div id="price">$—</div></div>
+    <div class="stat"><small>Cash</small><div id="cash">$—</div></div>
+    <div class="stat"><small>Equity</small><div id="equity">$—</div></div>
+    <div class="stat"><small>Profit</small><div id="profit">$—</div></div>
+    <div class="stat"><small>Status</small><div id="status">IDLE</div></div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="card">
+  <h2>Trade Log</h2>
+  <div class="log" id="log"></div>
+</div>
+
+<footer>
+  TradePilot AI • Paper Trading Demo • Broker-ready architecture
+</footer>
+
+</div>
+
+<script>
+let cash=0, shares=0, entry=0;
+let startTime=0, goal=0, maxDays=0;
+let prices=[], timer=null, startCash=0;
+
+function log(msg,cls=""){
+  const d=document.createElement("div");
+  d.className=cls;
+  d.textContent=new Date().toLocaleTimeString()+" — "+msg;
+  document.getElementById("log").prepend(d);
+}
+
+async function fetchPrice(sym){
+  const r=await fetch(`https://stooq.com/q/l/?s=${sym.toLowerCase()}&f=sd2t2ohlcv&h&e=csv`);
+  const t=await r.text();
+  const row=t.split("\n")[1];
+  return row?parseFloat(row.split(",")[3]):null;
+}
+
+function updateUI(price){
+  document.getElementById("price").textContent="$"+price.toFixed(2);
+  document.getElementById("cash").textContent="$"+cash.toFixed(2);
+  const eq=cash+shares*price;
+  document.getElementById("equity").textContent="$"+eq.toFixed(2);
+  document.getElementById("profit").textContent="$"+(eq-startCash).toFixed(2);
+}
+
+async function tick(){
+  const sym=document.getElementById("symbol").value;
+  const tradeAmt=parseFloat(document.getElementById("tradeAmount").value);
+  const price=await fetchPrice(sym);
+  if(!price)return;
+
+  prices.push(price);
+  if(prices.length>10)prices.shift();
+
+  updateUI(price);
+
+  const equity=cash+shares*price;
+  const profit=equity-startCash;
+  const elapsed=(Date.now()-startTime)/(1000*60*60*24);
+
+  if(profit>=goal){
+    document.getElementById("status").textContent="GOAL HIT";
+    log("🎯 Profit goal reached","good");
+    stopBot();
+    return;
+  }
+
+  if(elapsed>=maxDays){
+    document.getElementById("status").textContent="TIME UP";
+    log("⏰ Time window ended");
+    stopBot();
+    return;
+  }
+
+  if(prices.length<5)return;
+  const avg=prices.reduce((a,b)=>a+b,0)/prices.length;
+
+  if(price>avg && cash>=tradeAmt){
+    const qty=tradeAmt/price;
+    shares+=qty;
+    cash-=tradeAmt;
+    entry=price;
+    log(`BUY ${qty.toFixed(4)} @ $${price.toFixed(2)}`,"good");
+  }
+
+  if(shares>0 && price>entry*1.01){
+    cash+=shares*price;
+    log(`SELL ${shares.toFixed(4)} @ $${price.toFixed(2)}`,"bad");
+    shares=0;
+  }
+}
+
+function startBot(){
+  cash=parseFloat(document.getElementById("startBalance").value);
+  startCash=cash;
+  goal=parseFloat(document.getElementById("profitGoal").value);
+  maxDays=parseFloat(document.getElementById("days").value);
+  shares=0; prices=[];
+  startTime=Date.now();
+  document.getElementById("status").textContent="RUNNING";
+  log("Automation started");
+  timer=setInterval(tick,15000);
+}
+
+function stopBot(){
+  clearInterval(timer);
+  timer=null;
+  document.getElementById("status").textContent="STOPPED";
+}
+</script>
+
+</body>
+</html>
