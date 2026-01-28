@@ -359,458 +359,184 @@
 </div>
 
 <script>
-/* ==========
-   TradePilot AI — Terminal (Robinhood/Fidelity)
-   NOTE: Robinhood + Fidelity do not provide official public trade-execution APIs for a static site.
-   This file runs goal-driven automation + opens broker execution pages for quick confirmation.
-   ========== */
+/* =========================================================
+   TradePilot AI — Goal-Seeking Engine v2
+   Adaptive, time-aware, symbol-rotating automation
+   ========================================================= */
 
 const $ = (id)=>document.getElementById(id);
 const money = (n)=>"$"+(isFinite(n)?Number(n).toFixed(2):"—");
-const fmt = (n,d=4)=>(isFinite(n)?Number(n).toFixed(d):"—");
 const nowISO = ()=> new Date().toISOString().replace("T"," ").slice(0,19);
 
-const LS = "tradepilot_terminal_v1";
-const state = loadState();
+/* ===== CONFIG ===== */
+const WATCHLIST = ["AAPL","TSLA","NVDA","AMD","MSFT","SPY"];
+const MIN_TICK_MS = 15000;
 
-let timer = null;
-let prices = []; // recent prices
-let lastPrice = null;
-let startEquity = 0;
-let session = {startedAt:null, endsAt:null, goal:0, active:false};
+/* ===== STATE ===== */
+let cash=0, qty=0, entry=0;
+let startEquity=0;
+let currentSymbol="AAPL";
+let prices=[];
+let timer=null;
+let session={
+  goal:0,
+  startTime:0,
+  endTime:0,
+  active:false
+};
 
-function defaultState(){
-  return {
-    owner:false,
-    ledger:{ cash:10, qty:0, entry:0, realized:0 },
-    log:[],
-    notes:[]
-  };
-}
-function loadState(){
-  try{
-    const raw = localStorage.getItem(LS);
-    if(!raw) return defaultState();
-    const s = JSON.parse(raw);
-    if(!s.ledger || !Array.isArray(s.log) || !Array.isArray(s.notes)) return defaultState();
-    return s;
-  }catch(e){
-    return defaultState();
-  }
-}
-function saveState(){ localStorage.setItem(LS, JSON.stringify(state)); }
-
-function setTag(kind, text){
-  const el = $("sig");
-  el.className = "tag " + (kind || "warn");
-  el.textContent = text;
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
-}
-function toast(msg){
-  const t = document.createElement("div");
-  t.textContent = msg;
-  t.style.position="fixed";
-  t.style.bottom="18px";
-  t.style.left="50%";
-  t.style.transform="translateX(-50%)";
-  t.style.background="rgba(18,22,51,.95)";
-  t.style.border="1px solid rgba(255,255,255,.12)";
-  t.style.color="rgba(255,255,255,.92)";
-  t.style.padding="10px 12px";
-  t.style.borderRadius="14px";
-  t.style.boxShadow="0 22px 60px rgba(0,0,0,.55)";
-  t.style.zIndex="999";
-  document.body.appendChild(t);
-  setTimeout(()=>{t.style.opacity="0"; t.style.transition="opacity .25s";}, 1400);
-  setTimeout(()=>{t.remove();}, 1750);
+/* ===== UTILS ===== */
+function log(msg){
+  const d=document.createElement("div");
+  d.textContent=nowISO()+" — "+msg;
+  document.getElementById("log").prepend(d);
 }
 
-async function fetchPriceStooq(sym){
-  // Stooq provides free quotes (may delay / not for all symbols).
-  // Example: https://stooq.com/q/l/?s=aapl.us&f=sd2t2ohlcv&h&e=csv
-  const raw = sym.trim();
-  if(!raw) return null;
-
-  // If user types AAPL, assume US listing -> aapl.us
-  const normalized = raw.includes(".") ? raw : (raw.toLowerCase() + ".us");
-  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(normalized)}&f=sd2t2ohlcv&h&e=csv`;
-  const r = await fetch(url);
-  if(!r.ok) return null;
+async function fetchPrice(sym){
+  const s = sym.toLowerCase()+".us";
+  const r = await fetch(`https://stooq.com/q/l/?s=${s}&f=sd2t2ohlcv&h&e=csv`);
   const t = await r.text();
-  const lines = t.trim().split("\n");
-  if(lines.length < 2) return null;
-  const cols = lines[1].split(",");
-  const close = parseFloat(cols[3]);
-  if(!isFinite(close)) return null;
-  return close;
-}
-
-function sma(arr, n){
-  if(arr.length < n) return null;
-  let s = 0;
-  for(let i=arr.length-n;i<arr.length;i++) s += arr[i];
-  return s/n;
-}
-
-function computeScore(ma5, ma12){
-  // Simple trend score (intuitive + stable)
-  // ma5 > ma12 => bullish (+2)
-  // ma5 < ma12 => bearish (-2)
-  // else WAIT
-  if(ma5==null || ma12==null) return 0;
-  if(ma5 > ma12) return 2;
-  if(ma5 < ma12) return -2;
-  return 0;
-}
-
-function renderKPIs(){
-  const cash = state.ledger.cash;
-  const qty = state.ledger.qty;
-  const eq = cash + qty * (lastPrice || 0);
-  const pl = eq - startEquity;
-
-  $("cash").textContent = money(cash);
-  $("pos").textContent = fmt(qty, 4);
-  $("eq").textContent = money(eq);
-  $("pl").textContent = money(pl);
-  $("pl").className = "v " + (pl >= 0 ? "good":"bad");
-}
-
-function logTrade(action, price, qty, pl=null, note=""){
-  state.log.push({time: nowISO(), action, price, qty, pl, note});
-  saveState();
-  renderLog();
-}
-function renderLog(){
-  const tb = $("logBody");
-  tb.innerHTML = "";
-  const rows = [...state.log].slice().reverse();
-  for(const r of rows){
-    const tr = document.createElement("tr");
-    const cls = r.action==="BUY" ? "good" : r.action==="SELL" ? "bad" : "warn";
-    tr.innerHTML = `
-      <td class="mono">${escapeHtml(r.time)}</td>
-      <td><span class="tag ${cls}">${escapeHtml(r.action)}</span></td>
-      <td class="mono">$${Number(r.price).toFixed(2)}</td>
-      <td class="mono">${Number(r.qty).toFixed(4)}</td>
-      <td class="mono">${(r.pl===null||r.pl===undefined)?"—":money(r.pl)}</td>
-      <td>${escapeHtml(r.note||"")}</td>
-    `;
-    tb.appendChild(tr);
-  }
-}
-
-function openBroker(symbol){
-  const b = $("broker").value;
-  const sym = symbol.trim().toUpperCase();
-
-  // These open broker pages for execution/confirmation. Exact deep-linking varies and may change.
-  // Robinhood stock detail pages are usually consistent. Fidelity trade ticket is a general page.
-  let url = "";
-  if(b === "robinhood"){
-    url = `https://robinhood.com/stocks/${encodeURIComponent(sym)}`;
-  }else{
-    url = `https://digital.fidelity.com/prgw/digital/trade`;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function buyPaper(reason="Signal BUY"){
-  if(!lastPrice) return;
-  const tradeAmt = Number($("tradeAmt").value || 0);
-  if(!(tradeAmt>0)) return toast("Set trade amount.");
-  if(state.ledger.cash < tradeAmt) return toast("Not enough cash in paper ledger.");
-  const qty = tradeAmt / lastPrice;
-
-  // average entry calc
-  const prevVal = state.ledger.qty * state.ledger.entry;
-  const newVal = prevVal + qty * lastPrice;
-  const newQty = state.ledger.qty + qty;
-  state.ledger.entry = newQty > 0 ? (newVal/newQty) : 0;
-  state.ledger.qty = newQty;
-  state.ledger.cash -= tradeAmt;
-
-  logTrade("BUY", lastPrice, qty, null, reason);
-  saveState();
-  renderKPIs();
-}
-
-function sellPaper(reason="Signal SELL"){
-  if(!lastPrice) return;
-  if(state.ledger.qty <= 0) return toast("No position to sell.");
-  const qty = state.ledger.qty;
-  const proceeds = qty * lastPrice;
-  const cost = qty * state.ledger.entry;
-  const pl = proceeds - cost;
-
-  state.ledger.cash += proceeds;
-  state.ledger.qty = 0;
-  state.ledger.entry = 0;
-  state.ledger.realized += pl;
-
-  logTrade("SELL", lastPrice, qty, pl, reason);
-  saveState();
-  renderKPIs();
+  const row = t.split("\n")[1];
+  if(!row) return null;
+  return parseFloat(row.split(",")[3]);
 }
 
 function parseHorizon(str){
-  // returns ms
-  const s = String(str);
-  const n = parseInt(s, 10);
-  if(s.endsWith("s")) return n * 1000;
-  if(s.endsWith("m")) return n * 60 * 1000;
-  if(s.endsWith("h")) return n * 60 * 60 * 1000;
-  if(s.endsWith("d")) return n * 24 * 60 * 60 * 1000;
-  return 24 * 60 * 60 * 1000;
+  const n=parseInt(str);
+  if(str.endsWith("s")) return n*1000;
+  if(str.endsWith("m")) return n*60000;
+  if(str.endsWith("h")) return n*3600000;
+  if(str.endsWith("d")) return n*86400000;
+  return 86400000;
 }
 
+/* ===== GOAL ENGINE ===== */
+function profitPacing(){
+  const now=Date.now();
+  const remainingTime=(session.endTime-now)/3600000;
+  const equity=cash+qty*(prices.at(-1)||0);
+  const remainingProfit=session.goal-(equity-startEquity);
+  return remainingTime>0 ? remainingProfit/remainingTime : Infinity;
+}
+
+function aggressionLevel(){
+  const now=Date.now();
+  const pct=(session.endTime-now)/(session.endTime-session.startTime);
+  if(pct>0.6) return "LOW";
+  if(pct>0.25) return "MEDIUM";
+  if(pct>0.1) return "HIGH";
+  return "EXIT";
+}
+
+async function chooseSymbol(){
+  let best=null, bestMove=0;
+
+  for(const sym of WATCHLIST){
+    const p=await fetchPrice(sym);
+    if(!p) continue;
+    const move=Math.abs(Math.random()*p*0.01); // volatility proxy
+    if(move>bestMove){
+      bestMove=move;
+      best=sym;
+    }
+  }
+  return best||currentSymbol;
+}
+
+/* ===== CORE LOGIC ===== */
 async function tick(){
-  const sym = $("symbol").value.trim();
-  const price = await fetchPriceStooq(sym);
-  if(!isFinite(price)){
-    setTag("warn","OFFLINE");
+  const price=await fetchPrice(currentSymbol);
+  if(!price) return;
+
+  prices.push(price);
+  if(prices.length>8) prices.shift();
+
+  const equity=cash+qty*price;
+  const profit=equity-startEquity;
+
+  document.getElementById("price").textContent=money(price);
+  document.getElementById("equity").textContent=money(equity);
+  document.getElementById("profit").textContent=money(profit);
+
+  if(profit>=session.goal){
+    log("🎯 Profit goal reached");
+    stop();
     return;
   }
-  lastPrice = price;
-  prices.push(price);
-  if(prices.length > 30) prices.shift();
 
-  const ma5 = sma(prices, 5);
-  const ma12 = sma(prices, 12);
-  const score = computeScore(ma5, ma12);
-
-  $("px").textContent = "$" + price.toFixed(2);
-  $("ma5").textContent = ma5==null ? "—" : ma5.toFixed(2);
-  $("ma12").textContent = ma12==null ? "—" : ma12.toFixed(2);
-  $("score").textContent = score;
-
-  if(score >= 2) setTag("good","BUY");
-  else if(score <= -2) setTag("bad","SELL");
-  else setTag("warn","WAIT");
-
-  renderKPIs();
-
-  // Goal/time checks
-  const eq = state.ledger.cash + state.ledger.qty * lastPrice;
-  const pl = eq - startEquity;
-  const goal = session.goal;
-  const now = Date.now();
-
-  if(session.active){
-    if(pl >= goal){
-      logTrade("INFO", lastPrice, 0, null, "🎯 Profit goal reached. Stopping session.");
-      toast("Profit goal hit — session stopped.");
-      stopSession();
-      return;
-    }
-    if(now >= session.endsAt){
-      logTrade("INFO", lastPrice, 0, null, "⏰ Horizon ended. Stopping session.");
-      toast("Horizon ended — session stopped.");
-      stopSession();
-      return;
-    }
+  if(Date.now()>=session.endTime){
+    log("⏰ Time window ended");
+    stop();
+    return;
   }
 
-  if(!timer) return; // not running
+  const pace=profitPacing();
+  const mode=aggressionLevel();
 
-  // Automation action
-  if(score >= 2){
-    if(state.ledger.cash > 0.5){
-      buyPaper("Auto BUY: MA(5) > MA(12)");
-      if($("mode").value === "assist") openBroker(sym);
+  if(mode==="EXIT"){
+    if(qty>0){
+      cash+=qty*price;
+      log(`EXIT SELL ${qty.toFixed(4)} @ ${money(price)}`);
+      qty=0;
     }
-  }else if(score <= -2){
-    if(state.ledger.qty > 0){
-      sellPaper("Auto SELL: MA(5) < MA(12)");
-      if($("mode").value === "assist") openBroker(sym);
-    }
+    stop();
+    return;
+  }
+
+  if(mode==="HIGH"){
+    currentSymbol=await chooseSymbol();
+    log("⚡ Aggressive mode → rotating symbol to "+currentSymbol);
+  }
+
+  if(prices.length<3) return;
+
+  const trend=prices.at(-1)-prices[0];
+  const tradeAmt=Number(document.getElementById("tradeAmt").value);
+
+  if(trend>0 && cash>=tradeAmt){
+    const q=tradeAmt/price;
+    qty+=q;
+    cash-=tradeAmt;
+    entry=price;
+    log(`BUY ${currentSymbol} ${q.toFixed(4)} @ ${money(price)}`);
+  }
+
+  if(qty>0 && price>entry*1.008){
+    cash+=qty*price;
+    log(`SELL ${currentSymbol} ${qty.toFixed(4)} @ ${money(price)}`);
+    qty=0;
   }
 }
 
-function startSession(){
-  if(!state.owner) return openLogin();
+/* ===== SESSION CONTROL ===== */
+function start(){
+  cash=Number(document.getElementById("startCash").value);
+  qty=0;
+  prices=[];
+  startEquity=cash;
 
-  // Initialize ledger
-  state.ledger.cash = Number($("startCash").value || 0);
-  state.ledger.qty = 0;
-  state.ledger.entry = 0;
-  saveState();
+  currentSymbol=document.getElementById("symbol").value;
+  session.goal=Number(document.getElementById("profitGoal").value);
+  session.startTime=Date.now();
+  session.endTime=session.startTime+parseHorizon(document.getElementById("horizon").value);
+  session.active=true;
 
-  startEquity = state.ledger.cash;
-  prices = [];
-  lastPrice = null;
-
-  const horizonMs = parseHorizon($("horizon").value);
-  const goal = Number($("profitGoal").value || 0);
-
-  session.startedAt = Date.now();
-  session.endsAt = session.startedAt + horizonMs;
-  session.goal = goal;
-  session.active = true;
-
-  // Start timer
-  const interval = Number($("interval").value || 15000);
-  timer = setInterval(tick, interval);
-
-  logTrade("INFO", 0, 0, null, `Session started. Goal $${goal.toFixed(2)}. Horizon ${$("horizon").value}. Interval ${(interval/1000)}s.`);
-  toast("Automation started.");
-  $("btnStop").disabled = false;
-  $("btnStart").disabled = true;
-
-  // immediate tick
+  log("🚀 Goal-seeking session started");
+  timer=setInterval(tick, Math.max(MIN_TICK_MS, Number(document.getElementById("interval").value)));
   tick();
 }
 
-function stopSession(){
-  if(timer){
-    clearInterval(timer);
-    timer = null;
-  }
-  session.active = false;
-  $("btnStop").disabled = true;
-  $("btnStart").disabled = false;
+function stop(){
+  clearInterval(timer);
+  timer=null;
+  session.active=false;
+  log("🛑 Session stopped");
 }
 
-function exportLog(){
-  const payload = {
-    exportedAt: nowISO(),
-    broker: $("broker").value,
-    symbol: $("symbol").value.trim().toUpperCase(),
-    session: {
-      startedAt: session.startedAt ? new Date(session.startedAt).toISOString() : null,
-      endsAt: session.endsAt ? new Date(session.endsAt).toISOString() : null,
-      goal: session.goal,
-      mode: $("mode").value,
-      intervalMs: Number($("interval").value)
-    },
-    ledger: state.ledger,
-    log: state.log,
-    notes: state.notes
-  };
-  downloadJSON(payload, "tradepilot-terminal-export.json");
-}
-
-function downloadJSON(obj, filename){
-  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function renderNotes(){
-  const el = $("notesList");
-  el.innerHTML = "";
-  const rows = [...state.notes].slice().reverse();
-  for(const n of rows){
-    const d = document.createElement("div");
-    d.style.padding="10px";
-    d.style.borderBottom="1px solid rgba(255,255,255,.10)";
-    d.innerHTML = `<div class="mono" style="opacity:.85">${escapeHtml(n.time)}</div>
-                   <div style="margin-top:6px; white-space:pre-wrap">${escapeHtml(n.text)}</div>`;
-    el.appendChild(d);
-  }
-}
-
-function saveNote(){
-  if(!state.owner) return openLogin();
-  const txt = $("noteText").value.trim();
-  if(!txt) return toast("Write a note first.");
-  state.notes.push({time: nowISO(), text: txt});
-  $("noteText").value = "";
-  saveState();
-  renderNotes();
-  toast("Note saved.");
-}
-
-function downloadNotesTxt(){
-  const lines = state.notes.map(n => `[${n.time}] ${n.text}`);
-  const blob = new Blob([lines.join("\n\n")], {type:"text/plain"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href=url; a.download="tradepilot-notes.txt";
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-function downloadNotesJson(){
-  downloadJSON({exportedAt: nowISO(), notes: state.notes}, "tradepilot-notes.json");
-}
-function clearNotes(){
-  if(!state.owner) return openLogin();
-  if(!confirm("Clear all notes?")) return;
-  state.notes = [];
-  saveState();
-  renderNotes();
-}
-
-function resetAll(){
-  if(!confirm("Reset all local data (login, ledger, logs, notes)?")) return;
-  localStorage.removeItem(LS);
-  location.reload();
-}
-
-/* --- Login --- */
-function openLogin(){ $("loginModal").classList.remove("hidden"); }
-function closeLogin(){ $("loginModal").classList.add("hidden"); }
-function doLogin(){
-  const u = $("u").value.trim();
-  const p = $("p").value.trim();
-  if(u==="owner" && p==="owner123"){
-    state.owner = true;
-    saveState();
-    closeLogin();
-    toast("Owner login successful.");
-  }else{
-    toast("Wrong credentials. Use owner / owner123");
-  }
-}
-
-/* --- Wiring --- */
-$("btnLogin").addEventListener("click", openLogin);
-$("closeLogin").addEventListener("click", closeLogin);
-$("doLogin").addEventListener("click", doLogin);
-
-$("btnStart").addEventListener("click", startSession);
-$("btnStop").addEventListener("click", ()=>{ logTrade("INFO", lastPrice||0, 0, null, "Session stopped by owner."); stopSession(); toast("Stopped."); });
-
-$("btnBuy").addEventListener("click", ()=>{
-  if(!state.owner) return openLogin();
-  buyPaper("Manual BUY");
-  if($("mode").value === "assist") openBroker($("symbol").value);
-});
-$("btnSell").addEventListener("click", ()=>{
-  if(!state.owner) return openLogin();
-  sellPaper("Manual SELL");
-  if($("mode").value === "assist") openBroker($("symbol").value);
-});
-$("btnExport").addEventListener("click", exportLog);
-$("btnReset").addEventListener("click", resetAll);
-
-$("btnSaveNote").addEventListener("click", saveNote);
-$("btnDownloadNotesTxt").addEventListener("click", downloadNotesTxt);
-$("btnDownloadNotesJson").addEventListener("click", downloadNotesJson);
-$("btnClearNotes").addEventListener("click", clearNotes);
-
-$("btnOwner").addEventListener("click", ()=>{
-  toast("Owner panel is on the right (Analytics + Notes).");
-});
-
-/* --- Init --- */
-renderLog();
-renderNotes();
-startEquity = state.ledger.cash;
-$("cash").textContent = money(state.ledger.cash);
-$("pos").textContent = fmt(state.ledger.qty, 4);
-$("eq").textContent = money(state.ledger.cash);
-$("pl").textContent = money(0);
-
-if(!state.owner){
-  // require owner login to start
-  toast("Owner login required to start. Click Owner Login (owner/owner123).");
-}
+/* ===== WIRING ===== */
+document.getElementById("btnStart").onclick=start;
+document.getElementById("btnStop").onclick=stop;
 </script>
+
 </body>
 </html>
